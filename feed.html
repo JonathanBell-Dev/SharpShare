@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SharpShare — Feed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Simple styling for layout and readable cards -->
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
+    .container{max-width:900px;margin:0 auto;padding:1rem}
+    header{border-bottom:1px solid #1f2937} .brand{color:#e5e7eb;text-decoration:none;font-weight:700}
+    nav a,nav span{margin-left:1rem;color:#e5e7eb;text-decoration:none}
+    h1,h2{margin:1rem 0}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:.75rem;padding:1rem;margin:1rem 0}
+    .footer{border-top:1px solid #1f2937;color:#9ca3af;margin-top:2rem;padding:1rem 0}
+  </style>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    /*
+      PURPOSE:
+      - Show a public list of posts from the "posts" table.
+      - Anyone can read (SELECT). Only the owner can write (enforced by RLS).
+    */
+
+    // 1) Supabase project configuration
+    const SUPABASE_URL = "https://qkpgnywwzisggfufwxsj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcGdueXd3emlzZ2dmdWZ3eHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzM5MTQsImV4cCI6MjA3OTg0OTkxNH0.-VFfjAQOgTAX8UtFVjg0KE2Nr7FYh5a0THIqL4kmqwk";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 2) Helper to safely show user text (avoid HTML injection)
+    function esc(s){
+      return (s??"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+    }
+
+    // 3) Navbar with conditional links (same idea as index.html)
+    async function renderNav(){
+      const { data:{ user } } = await sb.auth.getUser();
+      document.getElementById("nav").innerHTML = `
+        <header>
+          <div class="container" style="display:flex;justify-content:space-between;align-items:center">
+            <a class="brand" href="index.html">SharpShare</a>
+            <nav>
+              <a href="feed.html">Feed</a>
+              ${user ? `
+                <a href="dashboard.html">My Posts</a>
+                <a href="create.html">Create</a>
+                <a href="logout.html">Logout</a>
+              ` : `
+                <a href="login.html">Login</a>
+                <a href="signup.html">Sign up</a>
+              `}
+            </nav>
+          </div>
+        </header>`;
+    }
+
+    // 4) Load posts from Supabase and render them as simple cards
+    async function loadFeed(){
+      const box = document.getElementById("feed");
+
+      // Read latest posts; RLS policy allows public SELECT
+      const { data, error } = await sb
+        .from("posts")
+        .select("id,title,content,created_at")
+        .order("created_at",{ascending:false});
+
+      if (error){
+        box.innerHTML = `<p>${esc(error.message)}</p>`;
+        return;
+      }
+
+      if (!data || data.length===0){
+        box.innerHTML = `<p>No posts yet. <a href="login.html">Login</a> to create one.</p>`;
+        return;
+      }
+
+      // Build the list of post cards
+      box.innerHTML = data.map(p=>`
+        <article class="card">
+          <h2>${esc(p.title)}</h2>
+          <p>${esc(p.content)}</p>
+          <small class="muted">${new Date(p.created_at).toLocaleString()}</small>
+        </article>
+      `).join("");
+    }
+
+    // 5) Initialize page after load
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      await renderNav();
+      await loadFeed();
+    });
+  </script>
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>Latest Posts</h1>
+    <!-- JavaScript fills this with cards -->
+    <div id="feed"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><small>© <span id="y"></span> SharpShare</small></div>
+  </footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

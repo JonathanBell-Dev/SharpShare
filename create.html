@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SharpShare — Create</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Form styling -->
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
+    .container{max-width:900px;margin:0 auto;padding:1rem}
+    header{border-bottom:1px solid #1f2937} .brand{color:#e5e7eb;text-decoration:none;font-weight:700}
+    nav a{margin-left:1rem;color:#e5e7eb;text-decoration:none}
+    .form{max-width:640px} .form label{display:block;margin:.75rem 0}
+    .form input,.form textarea{width:100%;padding:.6rem;border:1px solid #374151;background:#0b1220;color:#e5e7eb;border-radius:.5rem}
+    .primary{background:#22c55e;color:#111;padding:.5rem .8rem;border-radius:.5rem;border:0;cursor:pointer}
+    .footer{border-top:1px solid #1f2937;color:#9ca3af;margin-top:2rem;padding:1rem 0}
+  </style>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    /*
+      PURPOSE:
+      - Require a logged-in user.
+      - Insert a new row in "posts" owned by that user (user_id).
+      - RLS ensures only the owner can insert, update, or delete their rows.
+    */
+
+    // 1) Supabase project configuration
+    const SUPABASE_URL = "https://qkpgnywwzisggfufwxsj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcGdueXd3emlzZ2dmdWZ3eHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzM5MTQsImV4cCI6MjA3OTg0OTkxNH0.-VFfjAQOgTAX8UtFVjg0KE2Nr7FYh5a0THIqL4kmqwk";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 2) Block access if user is not logged in (redirect to login with message)
+    async function requireAuth(){
+      const { data:{ user } } = await sb.auth.getUser();
+      if (!user){ location.replace("login.html?m=login_required"); return null; }
+      return user;
+    }
+
+    // 3) Build a simple navbar for logged-in users
+    async function renderNav(){
+      document.getElementById("nav").innerHTML = `
+        <header>
+          <div class="container" style="display:flex;justify-content:space-between;align-items:center">
+            <a class="brand" href="index.html">SharpShare</a>
+            <nav>
+              <a href="feed.html">Feed</a>
+              <a href="dashboard.html">My Posts</a>
+              <a href="create.html">Create</a>
+              <a href="logout.html">Logout</a>
+            </nav>
+          </div>
+        </header>`;
+    }
+
+    // 4) Handle the create form: validate and insert a new post
+    async function initCreate(user){
+      document.getElementById("createForm").addEventListener("submit", async (e)=>{
+        e.preventDefault();
+
+        // Read form fields
+        const title = document.getElementById("title").value.trim();
+        const content = document.getElementById("content").value.trim();
+
+        // Basic validation
+        if (!title || !content) return alert("Title and content required");
+
+        // Insert the new post; server-side RLS checks that user_id == auth.uid()
+        const { error } = await sb.from("posts").insert({ user_id: user.id, title, content });
+        if (error) return alert(error.message);
+
+        // Go back to your posts
+        location.href = "dashboard.html";
+      });
+    }
+
+    // 5) Initialize page
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      const user = await requireAuth(); if (!user) return;
+      await renderNav();
+      await initCreate(user);
+    });
+  </script>
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>New Post</h1>
+
+    <!-- Form for creating a new post -->
+    <form class="form" id="createForm">
+      <label>Title <input id="title" maxlength="140" required /></label>
+      <label>Content <textarea id="content" rows="6" required></textarea></label>
+      <button class="primary" type="submit">Create</button>
+    </form>
+  </main>
+
+  <footer class="footer"><div class="container"><small>© <span id="y"></span> SharpShare</small></div></footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

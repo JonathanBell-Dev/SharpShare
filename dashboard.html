@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SharpShare — Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Simple list view styles -->
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
+    .container{max-width:900px;margin:0 auto;padding:1rem}
+    header{border-bottom:1px solid #1f2937} .brand{color:#e5e7eb;text-decoration:none;font-weight:700}
+    nav a{margin-left:1rem;color:#e5e7eb;text-decoration:none}
+    .list{list-style:none;padding:0} .list li{padding:.75rem 0;border-bottom:1px dashed #1f2937}
+    .button{background:#22c55e;color:#111;padding:.5rem .8rem;border-radius:.5rem;text-decoration:none}
+    .footer{border-top:1px solid #1f2937;color:#9ca3af;margin-top:2rem;padding:1rem 0}
+  </style>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    /*
+      PURPOSE:
+      - Gate this page to logged-in users only.
+      - Show ONLY the posts created by the current user (filtered by user_id).
+      - Provide links to create a new post or edit existing ones.
+    */
+
+    // 1) Supabase project configuration
+    const SUPABASE_URL = "https://qkpgnywwzisggfufwxsj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcGdueXd3emlzZ2dmdWZ3eHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzM5MTQsImV4cCI6MjA3OTg0OTkxNH0.-VFfjAQOgTAX8UtFVjg0KE2Nr7FYh5a0THIqL4kmqwk";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 2) Helper to escape text (avoid HTML injection)
+    function esc(s){return (s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));}
+
+    // 3) Protect the page: redirect to login if not authenticated
+    async function requireAuth(){
+      const { data:{ user } } = await sb.auth.getUser();
+      if (!user){
+        // Add a message parameter so login can show "Please log in"
+        location.replace("login.html?m=login_required");
+        return null;
+      }
+      return user;
+    }
+
+    // 4) Build the navbar for authenticated users
+    async function renderNav(){
+      document.getElementById("nav").innerHTML = `
+        <header>
+          <div class="container" style="display:flex;justify-content:space-between;align-items:center">
+            <a class="brand" href="index.html">SharpShare</a>
+            <nav>
+              <a href="feed.html">Feed</a>
+              <a href="dashboard.html">My Posts</a>
+              <a href="create.html">Create</a>
+              <a href="logout.html">Logout</a>
+            </nav>
+          </div>
+        </header>`;
+    }
+
+    // 5) Load just the current user's posts (RLS also enforces ownership on write)
+    async function loadMine(user){
+      const ul = document.getElementById("mine");
+
+      // Query posts where user_id == current user's id
+      const { data, error } = await sb
+        .from("posts")
+        .select("id,title,created_at")
+        .eq("user_id", user.id)
+        .order("created_at",{ascending:false});
+
+      if (error){
+        ul.innerHTML = `<li>${esc(error.message)}</li>`;
+        return;
+      }
+
+      // Render a simple list with an Edit link for each post
+      ul.innerHTML = (data||[]).map(p=>`
+        <li>
+          <strong>${esc(p.title)}</strong>
+          <small> · ${new Date(p.created_at).toLocaleString()}</small>
+          <div><a href="edit.html?id=${p.id}">Edit</a></div>
+        </li>`).join("") || "<li>No posts yet.</li>";
+    }
+
+    // 6) Initialize page
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      const user = await requireAuth(); if (!user) return;  // Gate page
+      await renderNav();
+      await loadMine(user);
+    });
+  </script>
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>My Posts</h1>
+    <p><a class="button" href="create.html">New Post</a></p>
+    <!-- Filled with only this user's posts -->
+    <ul class="list" id="mine"></ul>
+  </main>
+
+  <footer class="footer"><div class="container"><small>© <span id="y"></span> SharpShare</small></div></footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

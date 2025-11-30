@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SharpShare — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Simple form styling -->
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e5e7eb}
+    .container{max-width:900px;margin:0 auto;padding:1rem}
+    header{border-bottom:1px solid #1f2937} .brand{color:#e5e7eb;text-decoration:none;font-weight:700}
+    nav a{margin-left:1rem;color:#e5e7eb;text-decoration:none}
+    .form{max-width:640px} .form label{display:block;margin:.75rem 0}
+    .form input{width:100%;padding:.6rem;border:1px solid #374151;background:#0b1220;color:#e5e7eb;border-radius:.5rem}
+    .primary{background:#22c55e;color:#111;padding:.5rem .8rem;border-radius:.5rem;border:0;cursor:pointer}
+    .warning{color:#fde68a;background:#3a2e06;border:1px solid #f59e0b;padding:.5rem;border-radius:.5rem}
+    .footer{border-top:1px solid #1f2937;color:#9ca3af;margin-top:2rem;padding:1rem 0}
+  </style>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    /*
+      PURPOSE:
+      - Let existing users log in with email+password.
+      - On success, redirect to the dashboard to manage their own posts.
+    */
+
+    // 1) Supabase project configuration
+    const SUPABASE_URL = "https://qkpgnywwzisggfufwxsj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcGdueXd3emlzZ2dmdWZ3eHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzM5MTQsImV4cCI6MjA3OTg0OTkxNH0.-VFfjAQOgTAX8UtFVjg0KE2Nr7FYh5a0THIqL4kmqwk";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 2) Show a static nav for auth pages (no username yet)
+    async function renderNav(){
+      document.getElementById("nav").innerHTML = `
+        <header>
+          <div class="container" style="display:flex;justify-content:space-between;align-items:center">
+            <a class="brand" href="index.html">SharpShare</a>
+            <nav>
+              <a href="feed.html">Feed</a>
+              <a href="login.html">Login</a>
+              <a href="signup.html">Sign up</a>
+            </nav>
+          </div>
+        </header>`;
+    }
+
+    // 3) Handle the login form submission
+    async function initLogin(){
+      // If a protected page sent us here, show a friendly message
+      const p = new URLSearchParams(location.search);
+      if (p.get("m")==="login_required") {
+        const el = document.getElementById("msg");
+        el.hidden=false;
+        el.textContent="Please log in to continue.";
+      }
+
+      // When the user submits the form, attempt to log in via Supabase
+      document.getElementById("loginForm").addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        const email = document.getElementById("email").value.trim();
+        const pass = document.getElementById("pass").value;
+        if (!email || !pass) return alert("Fill email and password");
+
+        // Supabase will create a session on success; RLS uses this to identify the user
+        const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+        if (error) return alert(error.message);
+
+        // Go to the dashboard where the user can manage their posts
+        location.href = "dashboard.html";
+      });
+    }
+
+    // 4) Initialize page
+    document.addEventListener('DOMContentLoaded', async ()=>{ await renderNav(); await initLogin(); });
+  </script>
+</head>
+<body>
+  <div id="nav"></div>
+
+  <main class="container">
+    <h1>Login</h1>
+    <!-- Hidden message that appears if a protected page redirects you here -->
+    <p id="msg" class="warning" hidden></p>
+
+    <!-- Login form with email and password fields -->
+    <form class="form" id="loginForm">
+      <label>Email <input id="email" type="email" required /></label>
+      <label>Password <input id="pass" type="password" required minlength="6" /></label>
+      <button class="primary" type="submit">Login</button>
+    </form>
+  </main>
+
+  <footer class="footer">
+    <div class="container"><small>© <span id="y"></span> SharpShare</small></div>
+  </footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>
